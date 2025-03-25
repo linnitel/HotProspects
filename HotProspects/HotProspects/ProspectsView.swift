@@ -36,34 +36,42 @@ struct ProspectsView: View {
     var body: some View {
 		NavigationStack {
 			List(prospects, selection: $selectedProspects) { prospect in
-				VStack(alignment: .leading) {
-					Text(prospect.name)
-						.font(.headline)
-					Text(prospect.emailAddress)
-						.foregroundStyle(.secondary)
-				}
-				.swipeActions {
-					Button("Delete", systemImage: "trash", role: .destructive) {
-						modelContext.delete(prospect)
+				HStack {
+					VStack(alignment: .leading) {
+						Text(prospect.name)
+							.font(.headline)
+						Text(prospect.emailAddress)
+							.foregroundStyle(.secondary)
 					}
-					if prospect.isContacted {
-						Button("Mark Uncontaceted", systemImage: "person.crop.circle.badge.xmark") {
-							prospect.isContacted.toggle()
+					.swipeActions {
+						Button("Delete", systemImage: "trash", role: .destructive) {
+							modelContext.delete(prospect)
 						}
-						.tint(.blue)
-					} else {
-						Button("Mark Contacted", systemImage: "person.crop.circle.badge.checkmark") {
-							prospect.isContacted.toggle()
-						}
-						.tint(.green)
+						if prospect.isContacted {
+							Button("Mark Uncontaceted", systemImage: "person.crop.circle.badge.xmark") {
+								prospect.isContacted.toggle()
+							}
+							.tint(.blue)
+						} else {
+							Button("Mark Contacted", systemImage: "person.crop.circle.badge.checkmark") {
+								prospect.isContacted.toggle()
+							}
+							.tint(.green)
 
-						Button("Remind Me", systemImage: "bell") {
-							addNotification(for: prospect)
+							Button("Remind Me", systemImage: "bell") {
+								addNotification(for: prospect)
+							}
+							.tint(.orange)
 						}
-						.tint(.orange)
+					}
+					.tag(prospect)
+
+					Spacer()
+					if filter == .none {
+						Image(systemName: prospect.isContacted ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.xmark")
+							.foregroundStyle( prospect.isContacted ? .green : .blue)
 					}
 				}
-				.tag(prospect)
 			}
 			.navigationTitle(title)
 			.toolbar {
