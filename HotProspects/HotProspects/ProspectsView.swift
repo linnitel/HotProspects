@@ -15,11 +15,16 @@ struct ProspectsView: View {
 		case none, contacted, uncontacted
 	}
 
-	@Environment(\.modelContext) var modelContext
-	@Query(sort: \Prospect.name) var prospects: [Prospect]
+	enum SortType {
+		case name, recent
+	}
 
+	@Environment(\.modelContext) var modelContext
+
+	@State private var sortType: SortType = .name
 	@State private var isShowingScaner = false
 	@State private var selectedProspects = Set<Prospect>()
+
 	let filter: FilterType
 
 	var title: String {
@@ -35,50 +40,20 @@ struct ProspectsView: View {
 
     var body: some View {
 		NavigationStack {
-			List(prospects, selection: $selectedProspects) { prospect in
-				NavigationLink {
-					EditView(prospect: prospect)
-				} label: {
-					HStack {
-						VStack(alignment: .leading) {
-							Text(prospect.name)
-								.font(.headline)
-							Text(prospect.emailAddress)
-								.foregroundStyle(.secondary)
-						}
-						.swipeActions {
-							Button("Delete", systemImage: "trash", role: .destructive) {
-								modelContext.delete(prospect)
-							}
-							if prospect.isContacted {
-								Button("Mark Uncontaceted", systemImage: "person.crop.circle.badge.xmark") {
-									prospect.isContacted.toggle()
-								}
-								.tint(.blue)
-							} else {
-								Button("Mark Contacted", systemImage: "person.crop.circle.badge.checkmark") {
-									prospect.isContacted.toggle()
-								}
-								.tint(.green)
-
-								Button("Remind Me", systemImage: "bell") {
-									addNotification(for: prospect)
-								}
-								.tint(.orange)
-							}
-						}
-						.tag(prospect)
-
-						Spacer()
-						if filter == .none {
-							Image(systemName: prospect.isContacted ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.xmark")
-								.foregroundStyle( prospect.isContacted ? .green : .blue)
+			ProspectsListView(filter: filter, sortType: sortType, selectedProspects: $selectedProspects)
+			.navigationTitle(title)
+			.toolbar {
+				ToolbarItem(placement: .topBarLeading) {
+					Button {
+						toggleSorting()
+					} label: {
+						HStack {
+							Image(systemName: sortType == .name ? "clock.arrow.circlepath" : "textformat.abc")
+							Text(sortType == .name ? "Sort by Recent" : "Sort by Name")
 						}
 					}
 				}
-			}
-			.navigationTitle(title)
-			.toolbar {
+
 				ToolbarItem(placement: .topBarTrailing) {
 					Button("Scan", systemImage: "qrcode.viewfinder") {
 						isShowingScaner = true
@@ -101,17 +76,6 @@ struct ProspectsView: View {
 		}
 	}
 
-	init(filter: FilterType) {
-		self.filter = filter
-
-		if filter != .none {
-			let showContactedOnly = filter == .contacted
-
-			_prospects = Query(filter: #Predicate {
-				$0.isContacted == showContactedOnly }, sort: [SortDescriptor(\Prospect.name)])
-		}
-	}
-
 	func handleScan(result: Result<ScanResult, ScanError>) {
 		isShowingScaner = false
 
@@ -129,41 +93,13 @@ struct ProspectsView: View {
 
 	}
 
+	private func toggleSorting() {
+		sortType = (sortType == .name) ? .recent : .name
+	}
+
 	func delete() {
 		for prospect in selectedProspects {
 			modelContext.delete(prospect)
-		}
-	}
-
-	func addNotification(for prospect: Prospect) {
-		let center = UNUserNotificationCenter.current()
-
-		let addRequest = {
-			let content = UNMutableNotificationContent()
-			content.title = "Contact \(prospect.name)"
-			content.subtitle = prospect.emailAddress
-			content.sound = UNNotificationSound.default
-
-			var dateComponents = DateComponents()
-			dateComponents.hour = 9
-
-			let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-			let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
-			center.add(request)
-		}
-
-		center.getNotificationSettings { settings in
-			if settings.authorizationStatus == .authorized {
-				addRequest()
-			} else {
-				center.requestAuthorization(options: [.alert, .badge, .sound]) { success, error in
-					if success {
-						addRequest()
-					} else if let error {
-						print(error.localizedDescription)
-					}
-				}
-			}
 		}
 	}
 }
